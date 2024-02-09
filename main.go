@@ -1,16 +1,17 @@
 package main
 
 import (
-    "net/http"
+	"fmt"
+	"net/http"
 
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 type indicator struct {
-    ElectricityStatus  bool  `json:"estatus"`
-    LocationName  string  `json:"location_name"`
-    LocationID string  `json:"location_id"`
-    CurrentTime  string `json:"timestamp"`
+	ElectricityStatus bool   `json:"estatus"`
+	LocationName      string `json:"location_name"`
+	LocationID        string `json:"location_id"`
+	CurrentTime       string `json:"timestamp"`
 }
 
 var indicators = []indicator{
@@ -18,27 +19,25 @@ var indicators = []indicator{
 }
 
 func main() {
-    router := gin.Default()
-    router.GET("/status", getStatus)
-    router.POST("/status", postStatus)
+	router := gin.Default()
+	router.GET("/status", getStatus)
+	router.POST("/status", postStatus)
 
-    router.Run("localhost:8080")
+	router.Run("localhost:8080")
 }
 
 func getStatus(c *gin.Context) {
-    c.IndentedJSON(http.StatusOK, indicators)
+	c.IndentedJSON(http.StatusOK, indicators)
 }
 
 func postStatus(c *gin.Context) {
-    var newInd indicator
+	var newInd indicator
 
-    if err := c.BindJSON(&newInd); err != nil {
-        return
-    }
-
-    // Add the new ind to the slice.
-    indicators = append(indicators, newInd)
-    c.IndentedJSON(http.StatusCreated, newInd)
+	if err := c.BindJSON(&newInd); err != nil {
+		return
+	}
+	fmt.Printf("GOT CURRENT STATUS: %v\n", newInd)
+	// Add the new ind to the slice.
+	indicators = append(indicators, newInd)
+	c.IndentedJSON(http.StatusCreated, newInd)
 }
-
-
