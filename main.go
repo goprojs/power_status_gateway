@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     "net/http"
 
     "github.com/gin-gonic/gin"
@@ -35,7 +36,7 @@ func postStatus(c *gin.Context) {
     if err := c.BindJSON(&newInd); err != nil {
         return
     }
-
+    fmt.Printf("GOT VALUES: %v\n", newInd)
     // Add the new ind to the slice.
     indicators = append(indicators, newInd)
     c.IndentedJSON(http.StatusCreated, newInd)
