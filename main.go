@@ -1,44 +1,104 @@
 package main
 
 import (
-    "net/http"
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"time"
 
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type indicator struct {
-    ElectricityStatus  bool  `json:"estatus"`
-    LocationName  string  `json:"location_name"`
-    LocationID string  `json:"location_id"`
-    CurrentTime  string `json:"timestamp"`
-}
+var client *mongo.Client
+var collection *mongo.Collection
 
-var indicators = []indicator{
-	{ElectricityStatus: true, LocationName: "Sompura Gate", LocationID: "562125", CurrentTime: "2024-02-03 14:20:23"},
+type indicator struct {
+	ElectricityStatus bool   `json:"estatus"`
+	LocationName      string `json:"location_name"`
+	LocationID        string `json:"location_id"`
+	CurrentTime       string `json:"timestamp"`
 }
 
 func main() {
-    router := gin.Default()
-    router.GET("/status", getStatus)
-    router.POST("/status", postStatus)
+	// Making a Connection to MongoDB
+	if err := godotenv.Load("local.env"); err != nil {
+		log.Fatal("error loading env file")
+	}
 
-    router.Run("localhost:8080")
+	mongoURI := os.Getenv("MONGO_DB_URI")
+
+	if mongoURI == "" {
+		log.Fatal("MongoDB uri is no set")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Set up collection
+	collection = client.Database("mgdb").Collection("indicators")
+
+	// Set up Gin router
+	router := gin.Default()
+	router.GET("/status", getStatus)
+	router.POST("/status", postStatus)
+
+	// Start server
+	router.Run("localhost:8080")
 }
 
 func getStatus(c *gin.Context) {
-    c.IndentedJSON(http.StatusOK, indicators)
+	var results []indicator
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var result indicator
+		if err := cursor.Decode(&result); err != nil {
+			log.Println(err)
+			continue
+		}
+		results = append(results, result)
+	}
+
+	if err := cursor.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
 }
 
 func postStatus(c *gin.Context) {
-    var newInd indicator
+	var newInd indicator
+	if err := c.BindJSON(&newInd); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    if err := c.BindJSON(&newInd); err != nil {
-        return
-    }
+	// Inserting data into MongoDB
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := collection.InsertOne(ctx, newInd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    // Add the new ind to the slice.
-    indicators = append(indicators, newInd)
-    c.IndentedJSON(http.StatusCreated, newInd)
+	c.JSON(http.StatusCreated, newInd)
 }
-
-
