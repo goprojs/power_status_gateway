@@ -1,0 +1,1 @@
+mongodb+srv://arabinda0704:mongos@cluster0.lpazmln.mongodb.net/
