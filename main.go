@@ -25,6 +25,9 @@ type indicator struct {
 }
 
 func main() {
+
+	// Set Gin to release mode
+	gin.SetMode(gin.ReleaseMode)
 	// Making a Connection to MongoDB
 	if err := godotenv.Load("local.env"); err != nil {
 		log.Fatal("error loading env file")
