@@ -55,7 +55,7 @@ func main() {
 	router.POST("/status", postStatus)
 
 	// Start server
-	router.Run("localhost:8080")
+	router.Run(":8080")
 }
 
 func getStatus(c *gin.Context) {
